@@ -24,7 +24,12 @@ module ActiveRecordLaxIncludes
     end
 
     def lax_includes_enabled?
-      !!Thread.current[:active_record_lax_includes_enabled]
+      result = Thread.current[:active_record_lax_includes_enabled]
+      if result.nil?
+        result = Rails.configuration.respond_to?(:active_record_lax_includes_enabled) &&
+                    Rails.configuration.active_record_lax_includes_enabled
+      end
+      result
     end
   end
 
