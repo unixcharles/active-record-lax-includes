@@ -4,12 +4,29 @@ module ActiveRecordLaxIncludes
       base.class_eval do
         alias_method :records_by_reflection_default, :records_by_reflection
         alias_method :records_by_reflection, :records_by_reflection_with_lax_include
+
+        alias_method :preload_hash_default, :preload_hash
+        alias_method :preload_hash, :preload_hash_with_lax_include
+      end
+    end
+
+    def preload_hash_with_lax_include(association)
+      if lax_includes_enabled?
+        association.each do |parent, child|
+          ActiveRecord::Associations::Preloader.new(records, parent, options).run
+          associated_records = filtered_records_by_reflection(parent).map { |record| record.send(parent) }.flatten
+          ActiveRecord::Associations::Preloader.new(associated_records, child).run
+        end
+      else
+        preload_hash_default(association)
       end
     end
 
     def records_by_reflection_with_lax_include(association)
       if lax_includes_enabled?
-        filtered_records_by_reflection(association)
+        filtered_records_by_reflection(association).group_by do |record|
+          record.class.reflections[association]
+        end
       else
         records_by_reflection_default(association)
       end
@@ -18,8 +35,6 @@ module ActiveRecordLaxIncludes
     def filtered_records_by_reflection(association)
       records.select do |record|
         record.class.reflections[association].present?
-      end.group_by do |record|
-        record.class.reflections[association]
       end
     end
 
